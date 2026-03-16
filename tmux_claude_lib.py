@@ -174,8 +174,11 @@ def detect_state(target: str, update_capture: bool = True) -> State:
     if not text.strip():
         return State.SHELL
 
-    # Check bottom lines for status indicators
-    tail = "\n".join(text.splitlines()[-8:])
+    # Check bottom lines for status indicators (strip trailing blanks from tmux)
+    _lines = text.splitlines()
+    while _lines and not _lines[-1].strip():
+        _lines.pop()
+    tail = "\n".join(_lines[-8:])
 
     # Check for prompt FIRST — when Claude finishes, old "esc to interrupt" text
     # may still be within the last 8 lines above the new ❯ prompt.
@@ -221,12 +224,13 @@ def detect_state(target: str, update_capture: bool = True) -> State:
     # Check the status bar (last 2 lines, below ❯) for live activity indicators.
     # Do NOT match "background tasks" in output above ❯ — that's stale text.
     if has_prompt:
-        status_bar = "\n".join(text.splitlines()[-2:])
+        status_bar = "\n".join(_lines[-3:])
         if re.search(
             r"\d+\s+bash(?:es)?\s+·\s+↓|local agents?"
             r"|↓\s+[\d.]+k?\s+tokens"
-            r"|/btw to ask",
-            status_bar,
+            r"|/btw to ask"
+            r"|esc to int",
+            status_bar, re.IGNORECASE,
         ):
             _confirmed_running.add(target)
             if update_capture:
